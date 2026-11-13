@@ -1,7 +1,7 @@
 name: Mirror host compilers
 
-# Copies the host compilers listed in Destiny-Org/destiny ci/host_compiler.sh
-# from their upstream release servers into releases of this repository.
+# Copies the host compilers listed in host_compiler.sh from their upstream
+# release servers into releases of this repository.
 # Run it from the Actions tab ("Run workflow"). Versions that are already
 # mirrored are skipped unless "force" is ticked.
 
@@ -12,6 +12,9 @@ on:
         description: 'Download and upload every version again'
         type: boolean
         default: false
+  push:
+    branches: [ main ]
+    paths: [ host_compiler.sh ]   # a version was added or changed
 
 permissions:
   contents: write   # create releases and upload assets in this repository
@@ -21,18 +24,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - name: Check out Destiny-Org/destiny for the version list
-        uses: actions/checkout@v4
-        with:
-          repository: Destiny-Org/destiny
-          path: destiny
-          sparse-checkout: ci
-          # If Destiny-Org/destiny is private, add a secret named DESTINY_READ_TOKEN
-          # (a token with read access to it); otherwise the default token is used.
-          token: ${{ secrets.DESTINY_READ_TOKEN || github.token }}
+      - uses: actions/checkout@v4
 
       - name: Mirror
         env:
           GH_TOKEN: ${{ github.token }}
           MIRROR_FORCE: ${{ inputs.force && '1' || '0' }}
-        run: bash destiny/ci/mirror_host_compilers.sh "${{ github.repository }}"
+        run: bash ./mirror.sh "${{ github.repository }}"
