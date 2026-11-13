@@ -34,25 +34,38 @@ upstream_url() {
 
 mirror_one() {
     local kind="$1" version="$2" platforms="$3"
-    local tag="$kind-$version" os asset files=()
-    if [ "${MIRROR_FORCE:-0}" != 1 ] && gh release view "$tag" --repo "$repo" > /dev/null 2>&1; then
-        echo "$tag is already mirrored, skipped (set MIRROR_FORCE=1 to redo it)" >&2
-        return
+    local tag="$kind-$version" os asset found existing="" files=() exists=0
+    if gh release view "$tag" --repo "$repo" > /dev/null 2>&1; then
+        exists=1
+        [ "${MIRROR_FORCE:-0}" = 1 ] || \
+            existing=" $(gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name' | tr '\n' ' ') "
     fi
     for os in $platforms; do
-        asset="$(asset_name "$kind" "$version" "$os")" || continue
-        if curl -fsSL --retry 3 "$(upstream_url "$kind" "$version" "$asset")" -o "$work/$asset"; then
-            files+=("$work/$asset")
-        else
-            echo "warning: no upstream $asset, skipped" >&2
-        fi
+        found=""
+        for asset in $(asset_names "$kind" "$version" "$os" 2>/dev/null); do
+            case "$existing" in *" $asset "*) found=present; break ;; esac
+        done
+        [ -z "$found" ] || continue          # already mirrored
+        for asset in $(asset_names "$kind" "$version" "$os" 2>/dev/null); do
+            if curl -fsSL --retry 3 "$(upstream_url "$kind" "$version" "$asset")" -o "$work/$asset"; then
+                files+=("$work/$asset"); found=downloaded; break
+            fi
+            rm -f "$work/$asset"
+        done
+        [ -n "$found" ] || echo "warning: no upstream $kind $version build for $os, skipped" >&2
     done
-    [ "${#files[@]}" -gt 0 ] || { echo "nothing to upload for $tag" >&2; return; }
+    [ "${#files[@]}" -gt 0 ] || { echo "$tag: nothing new to upload" >&2; return; }
 
-    (cd "$work" && sha256sum "${files[@]##*/}") > "$work/SHA256SUMS-$tag"
-    files+=("$work/SHA256SUMS-$tag")
+    # Checksums: keep the lines for files already in the release, add the new ones.
+    local sums="$work/SHA256SUMS-$tag"
+    : > "$sums"
+    if [ "$exists" = 1 ] && [ "${MIRROR_FORCE:-0}" != 1 ]; then
+        gh release download "$tag" --repo "$repo" --pattern "SHA256SUMS-$tag" --output "$sums" --clobber 2> /dev/null || : > "$sums"
+    fi
+    (cd "$work" && sha256sum "${files[@]##*/}") >> "$sums"
+    files+=("$sums")
 
-    if gh release view "$tag" --repo "$repo" > /dev/null 2>&1; then
+    if [ "$exists" = 1 ]; then
         gh release upload "$tag" --repo "$repo" --clobber "${files[@]}"
     else
         gh release create "$tag" --repo "$repo" --title "$kind $version" \

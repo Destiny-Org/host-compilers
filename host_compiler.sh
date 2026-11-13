@@ -35,14 +35,15 @@ host_os() {
     esac
 }
 
-# Asset file name for a compiler <kind> <version> on <os>.
-asset_name() {
+# Possible asset file names for a compiler <kind> <version> on <os>, in order
+# of preference. (Recent dmd releases ship Windows builds only as .7z.)
+asset_names() {
     local kind="$1" version="$2" os="$3"
     case "$kind/$os" in
         dmd/linux)    echo "dmd.$version.linux.tar.xz" ;;
         dmd/osx)      echo "dmd.$version.osx.tar.xz" ;;
         dmd/freebsd)  echo "dmd.$version.freebsd-64.tar.xz" ;;
-        dmd/windows)  echo "dmd.$version.windows.zip" ;;
+        dmd/windows)  echo "dmd.$version.windows.zip dmd.$version.windows.7z" ;;
         ldc/linux)    echo "ldc2-$version-linux-x86_64.tar.xz" ;;
         ldc/osx)      echo "ldc2-$version-osx-universal.tar.xz" ;;
         ldc/windows)  echo "ldc2-$version-windows-multilib.7z" ;;
@@ -72,16 +73,24 @@ main() {
         *) echo "$kind $version is not mirrored (mirrored: $known)" >&2; exit 1 ;;
     esac
 
-    local os asset dir
+    local os asset="" candidate dir
     os="$(host_os)"
-    asset="$(asset_name "$kind" "$version" "$os")"
     dir="$root/$spec"
 
     if [ ! -e "$dir/activate" ]; then
         echo "Installing $kind $version for $os from $MIRROR" >&2
         mkdir -p "$dir"
-        curl -fsSL --retry 5 --retry-delay 5 --connect-timeout 10 \
-            "$MIRROR/$kind-$version/$asset" -o "$dir/$asset"
+        for candidate in $(asset_names "$kind" "$version" "$os"); do
+            if curl -fsSL --retry 5 --retry-delay 5 --connect-timeout 10 \
+                    "$MIRROR/$kind-$version/$candidate" -o "$dir/$candidate"; then
+                asset="$candidate"
+                break
+            fi
+            rm -f "$dir/$candidate"
+        done
+        if [ -z "$asset" ]; then
+            echo "no $kind $version build for $os in the mirror" >&2; exit 1
+        fi
         case "$asset" in
             *.tar.xz) tar -C "$dir" -xJf "$dir/$asset" ;;
             *.zip)    unzip -q "$dir/$asset" -d "$dir" ;;

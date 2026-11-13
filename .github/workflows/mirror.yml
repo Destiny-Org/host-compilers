@@ -14,7 +14,7 @@ on:
         default: false
   push:
     branches: [ main ]
-    paths: [ host_compiler.sh ]   # a version was added or changed
+    paths: [ host_compiler.sh, mirror.sh ]   # versions or the mirror changed
 
 permissions:
   contents: write   # create releases and upload assets in this repository

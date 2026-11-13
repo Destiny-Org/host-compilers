@@ -9,7 +9,8 @@ This repository is public on purpose: it only holds unmodified upstream
 compilers, and public release files can be downloaded by any CI job without
 a token.
 
-Each release holds one compiler version for Linux, macOS, Windows and
+Each release holds one compiler version for Linux, macOS, Windows (`.zip`, or
+`.7z` for recent dmd releases) and
 FreeBSD (where available), plus a `SHA256SUMS-<tag>` file:
 
 - `dmd-<version>`, for example `dmd-2.113.1`
