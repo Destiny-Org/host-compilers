@@ -19,8 +19,8 @@
 set -euo pipefail
 
 # Mirrored versions. The last entry of each list is what "latest" means.
-DMD_VERSIONS="2.079.1 2.095.0 2.097.1 2.111.0 2.112.1 2.113.1"
-LDC_VERSIONS="1.41.0"
+DMD_VERSIONS="2.113.1"
+LDC_VERSIONS=""
 
 MIRROR="${HOST_COMPILER_MIRROR:-https://github.com/Destiny-Org/host-compilers/releases/download}"
 

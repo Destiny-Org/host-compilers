@@ -9,12 +9,9 @@ This repository is public on purpose: it only holds unmodified upstream
 compilers, and public release files can be downloaded by any CI job without
 a token.
 
-Each release holds one compiler version for Linux, macOS, Windows (`.zip`, or
-`.7z` for recent dmd releases) and
-FreeBSD (where available), plus a `SHA256SUMS-<tag>` file:
-
-- `dmd-<version>`, for example `dmd-2.113.1`
-- `ldc-<version>`, for example `ldc-1.41.0`
+Destiny uses a single host compiler, **dmd 2.113.1** (release `dmd-2.113.1`),
+for Linux, macOS, Windows and FreeBSD, plus a `SHA256SUMS-dmd-2.113.1` file.
+Older releases here are left over from earlier setups and are no longer used.
 
 ## Installing a host compiler
 
@@ -30,9 +27,9 @@ In Destiny-Org/destiny, `ci/host_compiler.sh dmd` does the same.
 
 ## Which versions
 
-`DMD_VERSIONS` and `LDC_VERSIONS` at the top of
-[host_compiler.sh](host_compiler.sh). The last entry of each list is what
-`dmd`, `dmd-latest`, `ldc` and `ldc-latest` mean.
+`DMD_VERSIONS` at the top of [host_compiler.sh](host_compiler.sh), currently
+just `2.113.1`. The last entry is what `dmd` and `dmd-latest` mean. The script
+still supports LDC (`LDC_VERSIONS`), but none is mirrored.
 
 ## Updating the mirror
 
