@@ -1,129 +1,83 @@
 #!/usr/bin/env bash
-# Installs a host compiler (an upstream D compiler used to build Destiny)
-# from the releases of this repository, Destiny-Org/host-compilers.
+# Installs a host compiler (a released Destiny compiler, used to build the
+# next one) from the releases of this repository, Destiny-Org/host-compilers.
 #
 # Usage: host_compiler.sh <spec> [install-root]
 #   or:  curl -fsSL https://raw.githubusercontent.com/Destiny-Org/host-compilers/main/host_compiler.sh | bash -s -- <spec>
 #
-#   spec          dmd, dmd-latest, dmd-<version>,
-#                 ldc, ldc-latest, ldmd2, ldc-<version>
+#   spec          destiny, destiny-latest, destiny-<version>
 #   install-root  defaults to ~/host-compilers
 #
 # Creates <install-root>/<spec>/activate, which puts the compiler on PATH and
-# sets DMD and DC; `deactivate` undoes it. Inside GitHub Actions the compiler
-# is also added to GITHUB_PATH / GITHUB_ENV, like a setup action would.
+# sets DMD and DC (the variable names the build scripts read); `deactivate`
+# undoes it. Inside GitHub Actions the compiler is also added to
+# GITHUB_PATH / GITHUB_ENV.
 #
-# The mirror holds only the versions listed below. To add one, add it here
-# and run the "Mirror host compilers" workflow of this repository.
+# Each version is a release of this repository tagged destiny-<version>,
+# holding the destiny64 package made by the destiny repository's
+# ci/package.sh (destiny64-<version>-linux.tar.xz). Only Linux x86_64 is
+# packaged. To add a version, upload its package to a new release and add
+# the version below.
 
 set -euo pipefail
 
-# Mirrored versions. The last entry of each list is what "latest" means.
-DMD_VERSIONS="2.113.1"
-LDC_VERSIONS=""
+# Released host compilers. The last entry is what "latest" means.
+DESTINY_VERSIONS="2.115.0-master"
 
 MIRROR="${HOST_COMPILER_MIRROR:-https://github.com/Destiny-Org/host-compilers/releases/download}"
-
-# Platform name used in asset file names: linux, osx, windows or freebsd.
-host_os() {
-    case "$(uname -s)" in
-        Linux) echo linux ;;
-        Darwin) echo osx ;;
-        FreeBSD) echo freebsd ;;
-        MINGW*|MSYS*|CYGWIN*) echo windows ;;
-        *) echo "unsupported OS: $(uname -s)" >&2; return 1 ;;
-    esac
-}
-
-# Possible asset file names for a compiler <kind> <version> on <os>, in order
-# of preference. (Recent dmd releases ship Windows builds only as .7z.)
-asset_names() {
-    local kind="$1" version="$2" os="$3"
-    case "$kind/$os" in
-        dmd/linux)    echo "dmd.$version.linux.tar.xz" ;;
-        dmd/osx)      echo "dmd.$version.osx.tar.xz" ;;
-        dmd/freebsd)  echo "dmd.$version.freebsd-64.tar.xz" ;;
-        dmd/windows)  echo "dmd.$version.windows.zip dmd.$version.windows.7z" ;;
-        ldc/linux)    echo "ldc2-$version-linux-x86_64.tar.xz" ;;
-        ldc/osx)      echo "ldc2-$version-osx-universal.tar.xz" ;;
-        ldc/windows)  echo "ldc2-$version-windows-multilib.7z" ;;
-        *) echo "no $kind build for $os" >&2; return 1 ;;
-    esac
-}
 
 last_word() { local w; for w in $1; do :; done; echo "$w"; }
 
 main() {
     local spec="${1:?usage: host_compiler.sh <spec> [install-root]}"
     local root="${2:-$HOME/host-compilers}"
-    local kind version driver
+    local version
 
     case "$spec" in
-        dmd|dmd-latest) kind=dmd; version="$(last_word "$DMD_VERSIONS")"; driver=dmd ;;
-        dmd-*)          kind=dmd; version="${spec#dmd-}"; driver=dmd ;;
-        ldc|ldc-latest) kind=ldc; version="$(last_word "$LDC_VERSIONS")"; driver=ldmd2 ;;
-        ldmd2)          kind=ldc; version="$(last_word "$LDC_VERSIONS")"; driver=ldmd2 ;;
-        ldc-*)          kind=ldc; version="${spec#ldc-}"; driver=ldmd2 ;;
-        *) echo "unknown compiler: $spec" >&2; exit 1 ;;
+        destiny|destiny-latest) version="$(last_word "$DESTINY_VERSIONS")" ;;
+        destiny-*)              version="${spec#destiny-}" ;;
+        *) echo "unknown host compiler: $spec (use destiny-<version>)" >&2; exit 1 ;;
     esac
 
-    local known="$DMD_VERSIONS"; [ "$kind" = ldc ] && known="$LDC_VERSIONS"
-    case " $known " in
+    case " $DESTINY_VERSIONS " in
         *" $version "*) ;;
-        *) echo "$kind $version is not mirrored (mirrored: $known)" >&2; exit 1 ;;
+        *) echo "destiny $version is not released here (released: $DESTINY_VERSIONS)" >&2; exit 1 ;;
     esac
 
-    local os asset="" candidate dir
-    os="$(host_os)"
-    dir="$root/$spec"
+    if [ "$(uname -s)" != Linux ] || [ "$(uname -m)" != x86_64 ]; then
+        echo "destiny64 host compilers exist for Linux x86_64 only" >&2; exit 1
+    fi
+
+    local asset="destiny64-$version-linux.tar.xz"
+    local dir="$root/$spec"
 
     if [ ! -e "$dir/activate" ]; then
-        echo "Installing $kind $version for $os from $MIRROR" >&2
+        echo "Installing destiny $version from $MIRROR" >&2
         mkdir -p "$dir"
-        for candidate in $(asset_names "$kind" "$version" "$os"); do
-            if curl -fsSL --retry 5 --retry-delay 5 --connect-timeout 10 \
-                    "$MIRROR/$kind-$version/$candidate" -o "$dir/$candidate"; then
-                asset="$candidate"
-                break
-            fi
-            rm -f "$dir/$candidate"
-        done
-        if [ -z "$asset" ]; then
-            echo "no $kind $version build for $os in the mirror" >&2; exit 1
-        fi
-        case "$asset" in
-            *.tar.xz) tar -C "$dir" -xJf "$dir/$asset" ;;
-            *.zip)    unzip -q "$dir/$asset" -d "$dir" ;;
-            *.7z)     7z x -y -o"$dir" "$dir/$asset" > /dev/null ;;
-        esac
+        curl -fsSL --retry 5 --retry-delay 5 --connect-timeout 10 \
+            "$MIRROR/destiny-$version/$asset" -o "$dir/$asset"
+        tar -C "$dir" -xJf "$dir/$asset"
         rm -f "$dir/$asset"
     fi
 
-    # Find the directory holding the compiler driver.
-    local exe="" bindir
-    [ "$os" = windows ] && exe=".exe"
-    bindir="$(dirname "$(find "$dir" -type f -name "$driver$exe" | sort | tail -n1)")"
-    if [ ! -x "$bindir/$driver$exe" ]; then
-        echo "could not find $driver in $dir" >&2; exit 1
+    local bindir="$dir/destiny64/bin"
+    if [ ! -x "$bindir/destiny" ]; then
+        echo "could not find destiny in $dir" >&2; exit 1
     fi
-    local dc=dmd; [ "$kind" = ldc ] && dc=ldc2
 
     cat > "$dir/activate" <<EOF
 _HOST_COMPILER_OLD_PATH="\$PATH"
 export PATH="$bindir:\$PATH"
-export DMD="$driver"
-export DC="$dc"
+export DMD="destiny"
+export DC="destiny"
 deactivate() { export PATH="\$_HOST_COMPILER_OLD_PATH"; unset DMD DC; unset -f deactivate; }
 EOF
 
     if [ -n "${GITHUB_PATH:-}" ]; then
         echo "$bindir" >> "$GITHUB_PATH"
-        { echo "DMD=$driver"; echo "DC=$dc"; } >> "$GITHUB_ENV"
+        { echo "DMD=destiny"; echo "DC=destiny"; } >> "$GITHUB_ENV"
     fi
     echo "$dir/activate"
 }
 
-# Run unless sourced (mirror.sh sources this file for the version lists).
-if [ "${BASH_SOURCE[0]:-$0}" = "$0" ] || [ -z "${BASH_SOURCE[0]:-}" ]; then
-    main "$@"
-fi
+main "$@"

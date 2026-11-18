@@ -1,0 +1,4 @@
+dist/
+
+# documentation is kept locally, not on GitHub
+docs/

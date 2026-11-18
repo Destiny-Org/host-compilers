@@ -1,45 +1,45 @@
 # host-compilers
 
-Destiny's compiler is written in D, so building it needs an existing D
-compiler: the *host compiler*. This repository keeps copies of the upstream
-host compilers that Destiny's CI and `bootstrap.sh` use, as GitHub releases,
-so builds do not depend on upstream download servers.
+Destiny's compiler is written in Destiny, so building it needs an existing
+Destiny compiler: the *host compiler*. This repository holds released
+Destiny compilers (the `destiny64` packages) as GitHub releases, one per
+version, tagged `destiny-<version>`. Destiny's CI installs one and uses it to
+build the next compiler, which then rebuilds itself.
 
-This repository is public on purpose: it only holds unmodified upstream
-compilers, and public release files can be downloaded by any CI job without
-a token.
+No upstream D compiler is used anywhere in Destiny's builds.
 
-Destiny uses a single host compiler, **dmd 2.113.1** (release `dmd-2.113.1`),
-for Linux, macOS, Windows and FreeBSD, plus a `SHA256SUMS-dmd-2.113.1` file.
-Older releases here are left over from earlier setups and are no longer used.
+This repository is public on purpose, so CI jobs can download the packages
+without a token.
+
+Only Linux x86_64 is packaged.
 
 ## Installing a host compiler
 
-[host_compiler.sh](host_compiler.sh) installs a mirrored compiler and writes
+[host_compiler.sh](host_compiler.sh) installs a released compiler and writes
 an `activate` script:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/Destiny-Org/host-compilers/main/host_compiler.sh | bash -s -- dmd
-source ~/host-compilers/dmd/activate
+curl -fsSL https://raw.githubusercontent.com/Destiny-Org/host-compilers/main/host_compiler.sh | bash -s -- destiny
+source ~/host-compilers/destiny/activate
 ```
 
-In Destiny-Org/destiny, `ci/host_compiler.sh dmd` does the same.
+In Destiny-Org/destiny, `ci/host_compiler.sh destiny` does the same.
 
 ## Which versions
 
-`DMD_VERSIONS` at the top of [host_compiler.sh](host_compiler.sh), currently
-just `2.113.1`. The last entry is what `dmd` and `dmd-latest` mean. The script
-still supports LDC (`LDC_VERSIONS`), but none is mirrored.
+`DESTINY_VERSIONS` at the top of [host_compiler.sh](host_compiler.sh). The
+last entry is what `destiny` and `destiny-latest` mean.
 
-## Updating the mirror
+## Adding a version
 
-Change the version lists in `host_compiler.sh` and push to `main`. The
-**Mirror host compilers** workflow runs automatically and uploads the new
-versions; versions already mirrored are skipped. It can also be started by
-hand from the Actions tab, with **force** to upload everything again.
+1. Build and package the compiler in Destiny-Org/destiny
+   (`ci/run.sh build`, then `ci/package.sh dist`). This produces
+   `destiny64-<version>-linux.tar.xz`.
+2. Create a release of this repository tagged `destiny-<version>` and upload
+   that file to it.
+3. Add the version to `DESTINY_VERSIONS` and push to `main`.
 
-## Licences
+## License
 
-dmd is distributed under the Boost Software License 1.0 and LDC under
-BSD-style licences; both allow redistribution. The archives are unmodified
-copies of the upstream releases.
+The packages are Destiny releases, under Destiny's license (Boost Software
+License 1.0).
