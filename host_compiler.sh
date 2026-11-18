@@ -16,17 +16,15 @@
 # Each version is a release of this repository tagged destiny-<version>,
 # holding the destiny64 package made by the destiny repository's
 # ci/package.sh (destiny64-<version>-linux.tar.xz). Only Linux x86_64 is
-# packaged. To add a version, upload its package to a new release and add
-# the version below.
+# packaged. Releases are published by the destiny repository's release
+# workflow; any released version can be installed, and "latest" is the
+# newest release of this repository.
 
 set -euo pipefail
 
-# Released host compilers. The last entry is what "latest" means.
-DESTINY_VERSIONS="2.115.0-master"
+REPO="${HOST_COMPILER_REPO:-Destiny-Org/host-compilers}"
 
 MIRROR="${HOST_COMPILER_MIRROR:-https://github.com/Destiny-Org/host-compilers/releases/download}"
-
-last_word() { local w; for w in $1; do :; done; echo "$w"; }
 
 main() {
     local spec="${1:?usage: host_compiler.sh <spec> [install-root]}"
@@ -34,14 +32,14 @@ main() {
     local version
 
     case "$spec" in
-        destiny|destiny-latest) version="$(last_word "$DESTINY_VERSIONS")" ;;
-        destiny-*)              version="${spec#destiny-}" ;;
+        destiny|destiny-latest)
+            # the newest release's tag, e.g. destiny-2.115.0
+            version="$(curl -fsSL --retry 5 --connect-timeout 10 \
+                "https://api.github.com/repos/$REPO/releases/latest" |
+                sed -n 's/.*"tag_name": *"destiny-\([^"]*\)".*/\1/p' | head -n1)"
+            [ -n "$version" ] || { echo "no destiny release found in $REPO" >&2; exit 1; } ;;
+        destiny-*) version="${spec#destiny-}" ;;
         *) echo "unknown host compiler: $spec (use destiny-<version>)" >&2; exit 1 ;;
-    esac
-
-    case " $DESTINY_VERSIONS " in
-        *" $version "*) ;;
-        *) echo "destiny $version is not released here (released: $DESTINY_VERSIONS)" >&2; exit 1 ;;
     esac
 
     if [ "$(uname -s)" != Linux ] || [ "$(uname -m)" != x86_64 ]; then
@@ -55,7 +53,8 @@ main() {
         echo "Installing destiny $version from $MIRROR" >&2
         mkdir -p "$dir"
         curl -fsSL --retry 5 --retry-delay 5 --connect-timeout 10 \
-            "$MIRROR/destiny-$version/$asset" -o "$dir/$asset"
+            "$MIRROR/destiny-$version/$asset" -o "$dir/$asset" ||
+            { echo "destiny $version is not released in $REPO (no $asset in release destiny-$version)" >&2; exit 1; }
         tar -C "$dir" -xJf "$dir/$asset"
         rm -f "$dir/$asset"
     fi
