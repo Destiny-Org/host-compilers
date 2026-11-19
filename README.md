@@ -41,5 +41,7 @@ last entry is what `destiny` and `destiny-latest` mean.
 
 ## License
 
-The packages are Destiny releases, under Destiny's license (Boost Software
+The scripts in this repository are under the Mozilla Public License 2.0 ([LICENSE](LICENSE)).
+The packages are Destiny releases; each contains its own LICENSE and NOTICE
+(Mozilla Public License 2.0, with the original D files under the Boost Software
 License 1.0).
