@@ -34,7 +34,11 @@ main() {
     case "$spec" in
         destiny|destiny-latest)
             # the newest release's tag, e.g. destiny-2.115.0
-            version="$(curl -fsSL --retry 5 --connect-timeout 10 \
+            # a token (GITHUB_TOKEN / GH_TOKEN) avoids the API's rate limit
+            local auth=()
+            local token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+            [ -n "$token" ] && auth=(-H "Authorization: Bearer $token")
+            version="$(curl -fsSL --retry 5 --connect-timeout 10 "${auth[@]}" \
                 "https://api.github.com/repos/$REPO/releases/latest" |
                 sed -n 's/.*"tag_name": *"destiny-\([^"]*\)".*/\1/p' | head -n1)"
             [ -n "$version" ] || { echo "no destiny release found in $REPO" >&2; exit 1; } ;;
